@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Bloom — Доставка цветов</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #f5f5f5;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::-webkit-scrollbar {
+      width: 0;
+      background: transparent;
+    }
+
+    .app-container {
+      max-width: 480px;
+      margin: 0 auto;
+      background: #0f0f0f;
+      min-height: 100vh;
+      position: relative;
+      box-shadow: 0 0 60px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bg-glow {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+      background: radial-gradient(circle at 30% 10%, rgba(255,182,193,0.08) 0%, transparent 50%),
+                  radial-gradient(circle at 80% 80%, rgba(255,105,180,0.05) 0%, transparent 60%);
+    }
+
+    .header {
+      padding: 20px 20px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(20px);
+      background: rgba(15,15,15,0.7);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .logo {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #ff6b9d, #c44dff, #ff6b9d);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradientShift 4s ease infinite;
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% center; }
+      50% { background-position: 100% center; }
+      100% { background-position: 0% center; }
+    }
+
+    .cart-icon {
+      position: relative;
+      background: rgba(255,255,255,0.08);
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: 0.3s;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+    }
+    .cart-icon:active { transform: scale(0.92); background: rgba(255,107,157,0.2); }
+    .cart-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #ff3860;
+      color: white;
+      border-radius: 12px;
+      min-width: 22px;
+      height: 22px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 5px;
+      box-shadow: 0 4px 10px rgba(255,56,96,0.5);
+    }
+
+    .hero {
+      padding: 20px 20px 10px;
+      position: relative;
+      z-index: 2;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(255,107,157,0.15);
+      color: #ff8db5;
+      padding: 8px 18px;
+      border-radius: 40px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255,107,157,0.3);
+      backdrop-filter: blur(10px);
+    }
+    .hero h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+      background: linear-gradient(to right, #fff, #e0c3fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      color: #a0a0b0;
+      font-size: 1rem;
+      margin-bottom: 20px;
+    }
+
+    .categories {
+      display: flex;
+      gap: 10px;
+      padding: 5px 20px 15px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      z-index: 5;
+      position: relative;
+    }
+    .category-chip {
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 10px 22px;
+      border-radius: 30px;
+      font-weight: 500;
+      font-size: 0.9rem;
+      color: #ccc;
+      transition: all 0.3s;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+    }
+    .category-chip.active {
+      background: #fff;
+      color: #0a0a0a;
+      font-weight: 600;
+      border-color: #fff;
+      box-shadow: 0 8px 20px rgba(255,255,255,0.15);
+    }
+
+    .products-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 0 20px 20px;
+      z-index: 5;
+      position: relative;
+    }
+
+    .product-card {
+      background: rgba(20,20,20,0.8);
+      backdrop-filter: blur(12px);
+      border-radius: 28px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+      position: relative;
+    }
+    .product-card:active { transform: scale(0.96); background: rgba(30,30,30,0.9); }
+    
+    /* Стиль для авторских букетов */
+    .product-card.bouquet-card {
+      border: 1px solid rgba(255, 215, 0, 0.25);
+      box-shadow: 0 8px 25px rgba(255, 215, 0, 0.08);
+      background: linear-gradient(145deg, rgba(30, 25, 20, 0.9), rgba(25, 20, 15, 0.95));
+    }
+    .bouquet-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: linear-gradient(135deg, #f7b733, #fc4a1a);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.7rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      backdrop-filter: blur(5px);
+      letter-spacing: 0.5px;
+      z-index: 2;
+      box-shadow: 0 4px 12px rgba(252, 74, 26, 0.4);
+    }
+
+    .product-img {
+      width: 100%;
+      aspect-ratio: 1 / 1.2;
+      object-fit: cover;
+      display: block;
+      background: linear-gradient(145deg, #1e1e2e, #252535);
+      transition: transform 0.6s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .product-card:hover .product-img { transform: scale(1.05); }
+    
+    .product-info {
+      padding: 14px 14px 18px;
+    }
+    .product-name {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+      color: #f0f0f0;
+    }
+    .product-price {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #ff8db5;
+      margin-bottom: 8px;
+    }
+    .bouquet-price {
+      color: #f7b733;
+      font-size: 1.1rem;
+    }
+    .price-per-item {
+      font-size: 0.75rem;
+      color: #888;
+      margin-bottom: 12px;
+    }
+    
+    .quantity-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .qty-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: white;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s;
+    }
+    .qty-btn:active { background: #ff3860; border-color: #ff3860; }
+    .qty-display {
+      font-weight: 700;
+      font-size: 1rem;
+      min-width: 24px;
+      text-align: center;
+    }
+    
+    .add-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      width: 100%;
+      cursor: pointer;
+      transition: 0.3s;
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .add-btn:active { background: #ff3860; border-color: #ff3860; }
+    .bouquet-add-btn {
+      background: linear-gradient(135deg, #f7b733, #fc4a1a);
+      border: none;
+      color: #000;
+      font-weight: 700;
+    }
+
+    .cart-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 40px);
+      max-width: 440px;
+      background: rgba(30,30,40,0.85);
+      backdrop-filter: blur(30px);
+      border-radius: 30px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+      z-index: 50;
+      transition: 0.3s;
+    }
+    .cart-panel.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); }
+    .cart-summary {
+      display: flex;
+      flex-direction: column;
+    }
+    .cart-total {
+      font-weight: 700;
+      font-size: 1.2rem;
+      background: linear-gradient(135deg, #ff6b9d, #ffb347);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .cart-items-count { font-size: 0.8rem; color: #aaa; }
+    .checkout-btn {
+      background: white;
+      color: #0a0a0a;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 40px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: 0.3s;
+      box-shadow: 0 10px 20px rgba(255,255,255,0.2);
+    }
+    .checkout-btn:active { background: #ff6b9d; color: white; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      visibility: hidden;
+      opacity: 0;
+      transition: 0.3s;
+    }
+    .modal-overlay.active { visibility: visible; opacity: 1; }
+    
+    .modal-sheet {
+      background: #1a1a2e;
+      width: 100%;
+      max-width: 480px;
+      border-radius: 36px 36px 0 0;
+      padding: 24px 24px 40px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      transform: translateY(100%);
+      transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal-overlay.active .modal-sheet { transform: translateY(0); }
+    
+    .modal-handle {
+      width: 40px;
+      height: 5px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 20px;
+      margin: 0 auto 24px;
+    }
+
+    .cart-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .cart-item-emoji {
+      font-size: 2.5rem;
+      width: 60px;
+      text-align: center;
+    }
+    .cart-item-info {
+      flex: 1;
+    }
+    .cart-item-name {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .cart-item-details {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+    }
+    .cart-item-price {
+      color: #ff8db5;
+      font-weight: 600;
+    }
+    .cart-item-qty {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cart-qty-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      cursor: pointer;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cart-remove-btn {
+      background: transparent;
+      border: none;
+      color: #ff3860;
+      cursor: pointer;
+      font-size: 0.8rem;
+      margin-left: 8px;
+      padding: 4px;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 18px;
+      padding: 16px 20px;
+      color: white;
+      font-size: 1rem;
+      margin-bottom: 14px;
+      outline: none;
+      transition: 0.3s;
+    }
+    .input-field:focus { border-color: #ff6b9d; background: rgba(255,107,157,0.05); }
+    .order-btn {
+      background: linear-gradient(135deg, #ff6b9d, #c44dff);
+      border: none;
+      width: 100%;
+      padding: 18px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: white;
+      margin-top: 8px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .order-btn:active { opacity: 0.8; transform: scale(0.98); }
+    .order-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+    .empty-cart {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    
+    .cart-total-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      font-weight: 700;
+      font-size: 1.2rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      margin-top: 10px;
+    }
+    
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="bg-glow"></div>
+
+    <div class="header">
+      <div class="logo">bloom.</div>
+      <div class="cart-icon" id="cartIcon">
+        🛒
+        <span class="cart-badge" id="cartBadge" style="display: none;">0</span>
+      </div>
+    </div>
+
+    <div class="hero">
+      <div class="hero-badge">🌸 Весенняя коллекция 2026</div>
+      <h1>Эмоции в<br>каждом лепестке</h1>
+      <p>Авторские букеты с доставкой за 2 часа</p>
+    </div>
+
+    <div class="categories" id="categoryContainer">
+      <div class="category-chip active" data-category="all">Все цветы</div>
+      <div class="category-chip" data-category="bouquet">✨ Авторские букеты</div>
+      <div class="category-chip" data-category="rose">Розы</div>
+      <div class="category-chip" data-category="mixed">Микс</div>
+      <div class="category-chip" data-category="mono">Монобукеты</div>
+    </div>
+
+    <div class="products-grid" id="productsGrid"></div>
+
+    <div class="cart-panel hidden" id="cartPanel">
+      <div class="cart-summary">
+        <span class="cart-total" id="cartTotal">0 ₽</span>
+        <span class="cart-items-count" id="cartCountText">0 цветков</span>
+      </div>
+      <button class="checkout-btn" id="checkoutBtn">Оформить</button>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div id="cartModalContent">
+          <div class="section-title">🛒 Ваша корзина</div>
+          <div id="cartItemsList"></div>
+          <div class="cart-total-section">
+            <span>Итого:</span>
+            <span style="background: linear-gradient(135deg, #ff6b9d, #ffb347); -webkit-background-clip: text; -webkit-text-fill-color: transparent;" id="modalTotal">0 ₽</span>
+          </div>
+          
+          <div style="margin-top: 20px;">
+            <div class="section-title">📋 Детали доставки</div>
+            <input type="text" class="input-field" placeholder="Имя получателя" id="nameInput">
+            <input type="tel" class="input-field" placeholder="Телефон" id="phoneInput">
+            <input type="text" class="input-field" placeholder="Адрес доставки" id="addressInput">
+          </div>
+          
+          <button class="order-btn" id="submitOrder">✨ Заказать доставку</button>
+          <button style="background:transparent; border:none; color:#ff6b9d; width:100%; margin-top:12px; font-weight:600;" id="closeModal">Продолжить покупки</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const tg = window.Telegram?.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        tg.MainButton?.hide();
+      }
+
+      // Товары: авторские букеты (фиксированная цена) и обычные цветы (цена за штуку)
+      const products = [
+        // Авторские букеты (isBouquet: true, цена фиксированная за весь букет)
+        { id: 101, name: 'Нежность сакуры', price: 3500, category: 'bouquet', emoji: '🌸🎀', desc: 'Розовые пионы и веточки сакуры', isBouquet: true },
+        { id: 102, name: 'Золотая осень', price: 4200, category: 'bouquet', emoji: '🌻🍂', desc: 'Подсолнухи, лаванда и сухоцветы', isBouquet: true },
+        { id: 103, name: 'Белый каскад', price: 5800, category: 'bouquet', emoji: '🤍🕊️', desc: 'Белые розы, гортензии и эвкалипт', isBouquet: true },
+        { id: 104, name: 'Прованс', price: 2900, category: 'bouquet', emoji: '💜🌿', desc: 'Лаванда, сирень и полевые травы', isBouquet: true },
+        
+        // Обычные цветы (цена за штуку)
+        { id: 1, name: 'Роза розовая', price: 250, category: 'rose', emoji: '🌸', desc: 'Нежная розовая роза' },
+        { id: 2, name: 'Роза белая', price: 280, category: 'rose', emoji: '🤍', desc: 'Элегантная белая роза' },
+        { id: 3, name: 'Роза красная', price: 300, category: 'rose', emoji: '❤️', desc: 'Страстная красная роза' },
+        { id: 4, name: 'Пион', price: 450, category: 'mono', emoji: '🎀', desc: 'Пышный пион' },
+        { id: 5, name: 'Лаванда', price: 180, category: 'mixed', emoji: '💜', desc: 'Ароматная лаванда' },
+        { id: 6, name: 'Подсолнух', price: 350, category: 'mixed', emoji: '🌻', desc: 'Солнечный подсолнух' },
+        { id: 7, name: 'Тюльпан', price: 200, category: 'mono', emoji: '🌷', desc: 'Весенний тюльпан' },
+        { id: 8, name: 'Гортензия', price: 520, category: 'mixed', emoji: '🫧', desc: 'Воздушная гортензия' }
+      ];
+
+      let cart = [];
+      let currentCategory = 'all';
+      let selectedQuantities = {};
+
+      const productsGrid = document.getElementById('productsGrid');
+      const categoryContainer = document.getElementById('categoryContainer');
+      const cartPanel = document.getElementById('cartPanel');
+      const cartBadge = document.getElementById('cartBadge');
+      const cartTotal = document.getElementById('cartTotal');
+      const cartCountText = document.getElementById('cartCountText');
+      const modalOverlay = document.getElementById('modalOverlay');
+      const cartIcon = document.getElementById('cartIcon');
+      const cartItemsList = document.getElementById('cartItemsList');
+      const modalTotal = document.getElementById('modalTotal');
+      const submitOrderBtn = document.getElementById('submitOrder');
+
+      function getInitialQuantity(productId) {
+        return selectedQuantities[productId] || 1;
+      }
+
+      function renderProducts(filter = 'all') {
+        const filtered = filter === 'all' ? products : products.filter(p => p.category === filter);
+        
+        productsGrid.innerHTML = filtered.map(product => {
+          const isBouquet = product.isBouquet;
+          
+          if (isBouquet) {
+            // Авторский букет — фиксированная цена, нет выбора количества
+            return `
+              <div class="product-card bouquet-card" data-id="${product.id}">
+                <div class="bouquet-badge">АВТОРСКИЙ</div>
+                <div class="product-img" style="font-size:4rem; background:radial-gradient(circle at center, rgba(247,183,51,0.2) 0%, transparent 70%);">
+                  ${product.emoji}
+                </div>
+                <div class="product-info">
+                  <div class="product-name">${product.name}</div>
+                  <div class="product-price bouquet-price">${product.price.toLocaleString()} ₽</div>
+                  <div class="price-per-item" style="color:#aaa;">${product.desc}</div>
+                  <button class="add-btn bouquet-add-btn" data-id="${product.id}">
+                    ✨ В корзину
+                  </button>
+                </div>
+              </div>
+            `;
+          } else {
+            // Обычный цветок
+            const qty = getInitialQuantity(product.id);
+            return `
+              <div class="product-card" data-id="${product.id}">
+                <div class="product-img" style="font-size:4rem; background:radial-gradient(circle at center, rgba(255,182,193,0.2) 0%, transparent 70%);">
+                  ${product.emoji}
+                </div>
+                <div class="product-info">
+                  <div class="product-name">${product.name}</div>
+                  <div class="product-price">${product.price} ₽ / шт</div>
+                  <div class="quantity-selector">
+                    <button class="qty-btn qty-minus" data-id="${product.id}">−</button>
+                    <span class="qty-display" id="qtyDisplay-${product.id}">${qty}</span>
+                    <button class="qty-btn qty-plus" data-id="${product.id}">+</button>
+                  </div>
+                  <button class="add-btn" data-id="${product.id}">
+                    <span>+</span> Добавить ${qty} шт (${(product.price * qty).toLocaleString()} ₽)
+                  </button>
+                </div>
+              </div>
+            `;
+          }
+        }).join('');
+
+        // Обработчики для обычных цветов
+        document.querySelectorAll('.qty-plus').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id);
+            selectedQuantities[id] = (selectedQuantities[id] || 1) + 1;
+            updateProductDisplay(id);
+          });
+        });
+
+        document.querySelectorAll('.qty-minus').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id);
+            const current = selectedQuantities[id] || 1;
+            if (current > 1) {
+              selectedQuantities[id] = current - 1;
+              updateProductDisplay(id);
+            }
+          });
+        });
+
+        // Универсальная кнопка добавления
+        document.querySelectorAll('.add-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id);
+            const product = products.find(p => p.id === id);
+            
+            if (product.isBouquet) {
+              addToCart(id, 1); // Букет всегда 1 штука
+            } else {
+              const quantity = selectedQuantities[id] || 1;
+              addToCart(id, quantity);
+              selectedQuantities[id] = 1;
+              updateProductDisplay(id);
+            }
+          });
+        });
+      }
+
+      function updateProductDisplay(productId) {
+        const qtyDisplay = document.getElementById(`qtyDisplay-${productId}`);
+        const addBtn = document.querySelector(`.add-btn[data-id="${productId}"]`);
+        const product = products.find(p => p.id === productId);
+        const qty = selectedQuantities[productId] || 1;
+        
+        if (qtyDisplay) qtyDisplay.textContent = qty;
+        if (addBtn && product && !product.isBouquet) {
+          addBtn.innerHTML = `<span>+</span> Добавить ${qty} шт (${(product.price * qty).toLocaleString()} ₽)`;
+        }
+        
+        const minusBtn = document.querySelector(`.qty-minus[data-id="${productId}"]`);
+        if (minusBtn) minusBtn.style.opacity = qty <= 1 ? '0.4' : '1';
+      }
+
+      function addToCart(productId, quantity) {
+        const product = products.find(p => p.id === productId);
+        const existing = cart.find(item => item.id === productId);
+        
+        if (product.isBouquet) {
+          // Для букетов заменяем количество, а не добавляем (всегда 1 букет данного типа)
+          if (existing) {
+            existing.quantity = 1; 
+          } else {
+            cart.push({ ...product, quantity: 1 });
+          }
+        } else {
+          if (existing) {
+            existing.quantity += quantity;
+          } else {
+            cart.push({ ...product, quantity: quantity });
+          }
+        }
+        
+        updateCartUI();
+        if (tg?.HapticFeedback) {
+          tg.HapticFeedback.notificationOccurred('success');
+        }
+      }
+
+      function removeFromCart(productId) {
+        cart = cart.filter(item => item.id !== productId);
+        updateCartUI();
+        renderCartItems();
+      }
+
+      function updateCartItemQuantity(productId, newQuantity) {
+        const item = cart.find(i => i.id === productId);
+        if (item) {
+          if (item.isBouquet) return; // Букет всегда 1
+          if (newQuantity <= 0) {
+            removeFromCart(productId);
+          } else {
+            item.quantity = newQuantity;
+            updateCartUI();
+            renderCartItems();
+          }
+        }
+      }
+
+      function updateCartUI() {
+        const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+        const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        if (totalItems > 0) {
+          cartPanel.classList.remove('hidden');
+          cartBadge.style.display = 'flex';
+          cartBadge.textContent = totalItems;
+          cartTotal.textContent = `${totalPrice.toLocaleString()} ₽`;
+          
+          const bouquets = cart.filter(i => i.isBouquet).length;
+          const flowers = cart.filter(i => !i.isBouquet).reduce((s, i) => s + i.quantity, 0);
+          let textParts = [];
+          if (bouquets > 0) textParts.push(`${bouquets} букет(а)`);
+          if (flowers > 0) textParts.push(`${flowers} ${getFlowerWord(flowers)}`);
+          cartCountText.textContent = textParts.join(', ') || '0 товаров';
+          
+          submitOrderBtn.disabled = false;
+        } else {
+          cartPanel.classList.add('hidden');
+          cartBadge.style.display = 'none';
+          submitOrderBtn.disabled = true;
+        }
+      }
+
+      function getFlowerWord(count) {
+        if (count % 10 === 1 && count % 100 !== 11) return 'цветок';
+        if ([2,3,4].includes(count % 10) && ![12,13,14].includes(count % 100)) return 'цветка';
+        return 'цветков';
+      }
+
+      function renderCartItems() {
+        if (cart.length === 0) {
+          cartItemsList.innerHTML = '<div class="empty-cart">🌿 Корзина пуста<br><span style="font-size:0.8rem;">Добавьте цветы или букеты, чтобы продолжить</span></div>';
+          modalTotal.textContent = '0 ₽';
+          return;
+        }
+
+        cartItemsList.innerHTML = cart.map(item => `
+          <div class="cart-item">
+            <div class="cart-item-emoji">${item.emoji}</div>
+            <div class="cart-item-info">
+              <div class="cart-item-name">${item.name} ${item.isBouquet ? '✨' : ''}</div>
+              <div class="cart-item-details">
+                <span class="cart-item-price">${item.isBouquet ? 'Букет' : item.price + ' ₽ / шт'}</span>
+                <div class="cart-item-qty">
+                  ${item.isBouquet ? '<span style="opacity:0.7;">1 шт.</span>' : `
+                    <button class="cart-qty-btn cart-qty-minus" data-id="${item.id}">−</button>
+                    <span>${item.quantity}</span>
+                    <button class="cart-qty-btn cart-qty-plus" data-id="${item.id}">+</button>
+                  `}
+                  <button class="cart-remove-btn" data-id="${item.id}">🗑️</button>
+                </div>
+              </div>
+              <div style="color:#ff8db5; font-weight:600; margin-top:4px;">${(item.price * item.quantity).toLocaleString()} ₽</div>
+            </div>
+          </div>
+        `).join('');
+
+        const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        modalTotal.textContent = `${total.toLocaleString()} ₽`;
+
+        document.querySelectorAll('.cart-qty-minus').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = parseInt(btn.dataset.id);
+            const item = cart.find(i => i.id === id);
+            if (item && !item.isBouquet) updateCartItemQuantity(id, item.quantity - 1);
+          });
+        });
+
+        document.querySelectorAll('.cart-qty-plus').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = parseInt(btn.dataset.id);
+            const item = cart.find(i => i.id === id);
+            if (item && !item.isBouquet) updateCartItemQuantity(id, item.quantity + 1);
+          });
+        });
+
+        document.querySelectorAll('.cart-remove-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = parseInt(btn.dataset.id);
+            removeFromCart(id);
+            if (cart.length === 0) {
+              modalOverlay.classList.remove('active');
+            }
+          });
+        });
+      }
+
+      categoryContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('category-chip')) {
+          document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+          e.target.classList.add('active');
+          currentCategory = e.target.dataset.category;
+          renderProducts(currentCategory);
+        }
+      });
+
+      function openCartModal() {
+        if (cart.length === 0) return;
+        renderCartItems();
+        modalOverlay.classList.add('active');
+      }
+
+      document.getElementById('checkoutBtn').addEventListener('click', openCartModal);
+      cartIcon.addEventListener('click', openCartModal);
+
+      document.getElementById('closeModal').addEventListener('click', () => {
+        modalOverlay.classList.remove('active');
+      });
+      
+      modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) modalOverlay.classList.remove('active');
+      });
+
+      document.getElementById('submitOrder').addEventListener('click', () => {
+        const name = document.getElementById('nameInput').value.trim();
+        const phone = document.getElementById('phoneInput').value.trim();
+        const address = document.getElementById('addressInput').value.trim();
+        
+        if (!name || !phone || !address) {
+          alert('Пожалуйста, заполните все поля');
+          return;
+        }
+
+        if (cart.length === 0) {
+          alert('Корзина пуста');
+          return;
+        }
+
+        const orderData = {
+          customer: { name, phone, address },
+          items: cart.map(item => ({
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            total: item.price * item.quantity,
+            isBouquet: item.isBouquet || false
+          })),
+          total: cart.reduce((s, i) => s + i.price * i.quantity, 0),
+          totalFlowers: cart.reduce((s, i) => s + i.quantity, 0),
+          date: new Date().toISOString()
+        };
+
+        if (tg) {
+          tg.sendData(JSON.stringify(orderData));
+          tg.close();
+        } else {
+          alert('Заказ оформлен! (Демо-режим)\n' + JSON.stringify(orderData, null, 2));
+          cart = [];
+          selectedQuantities = {};
+          updateCartUI();
+          renderProducts(currentCategory);
+          modalOverlay.classList.remove('active');
+          document.getElementById('nameInput').value = '';
+          document.getElementById('phoneInput').value = '';
+          document.getElementById('addressInput').value = '';
+        }
+      });
+
+      renderProducts('all');
+      updateCartUI();
+      submitOrderBtn.disabled = true;
+    })();
+  </script>
+</body>
+</html>
